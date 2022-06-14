@@ -23,7 +23,7 @@ const urlDatabase = {
   "9sm5xK": "http://www.google.com"
 };
 
-app.get("/hello", (req, res) => {
+app.get("/", (req, res) => {
   const templateVars = { greeting: 'Hello World!' };
   res.render("hello_world", templateVars);
 });
@@ -56,5 +56,5 @@ app.post("/urls", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Example app listening on port ${PORT}!`);
+  console.log(`Tiny URL app listening on port ${PORT}!`);
 });
