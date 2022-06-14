@@ -55,6 +55,11 @@ app.post("/urls", (req, res) => {
   res.redirect("/urls/"+alphaNumeric)
 });
 
+app.post("/urls/:shortURL/delete", (req, res) => {
+  delete urlDatabase[req.params.shortURL];
+  res.redirect("/urls");
+});
+
 app.listen(PORT, () => {
   console.log(`Tiny URL app listening on port ${PORT}!`);
 });
