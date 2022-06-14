@@ -62,7 +62,9 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 
 app.post("/urls/:shortURL/edit", (req, res) => {
   urlDatabase[req.params.shortURL] = req.body.longURL
-  res.redirect("/urls/"+req.params.shortURL);
+  res.redirect("/urls/");
+//  res.redirect("/urls/"+req.params.shortURL);
+
 });
 
 app.listen(PORT, () => {
