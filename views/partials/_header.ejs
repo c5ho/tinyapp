@@ -12,12 +12,9 @@
     </div>
     <div>
     <% if (!user_id) { %>
-      <div>
-        <form class="form-inline" action="/login" method="POST">
-          <label for="login"></label>
-            <input class="form-control" type="text" name="user_id" placeholder="user_id" style="width: 150px; margin: 1em">
-          <button type="submit" class="btn btn-outline-dark">Login</button>
-        </form>
+    <div class="navbar-nav">
+          <a class="nav-item nav-link" href="/login">Login</a>
+          <a class="nav-item nav-link" href="/register">Register</a>
       </div>
     <% } else { %>
       <div>
