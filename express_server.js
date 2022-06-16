@@ -30,10 +30,21 @@ function checkForEmail(email) {
   return false;
 }
     
+// "b2xVn2": "http://www.lighthouselabs.ca",
+// "9sm5xK": "http://www.google.com"
+
 //URL DATABASE
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  b6UTxQ: 
+  {
+      longURL: "https://www.tsn.ca",
+      userID: "aJ48lW"
+  },
+  i3BoGr: 
+  {
+      longURL: "https://www.google.ca",
+      userID: "aJ48lW"
+  }
 };
 
 //USER DATABASE
@@ -143,7 +154,7 @@ app.get("/urls/new", (request, response) => {
 app.get("/urls/:shortURL", (request, response) => {
   const templateVars = { 
     shortURL: request.params.shortURL, 
-    longURL: urlDatabase[request.params.shortURL],
+    longURL: urlDatabase[request.params.shortURL].longURL,
     user_id: request.cookies.user_id
   }; 
   response.render("urls_show", templateVars);
@@ -151,7 +162,7 @@ app.get("/urls/:shortURL", (request, response) => {
 
 //GET /U/SHORTURL (redirect to the long URL page)
 app.get("/u/:shortURL", (request, response) => {
-  const longURL = urlDatabase[request.params.shortURL];
+  const longURL = urlDatabase[request.params.shortURL].longURL;
   response.redirect(longURL);
 });
 
@@ -162,7 +173,9 @@ app.post("/urls", (request, response) => {
   if (Object.keys(request.cookies).length !== 0) {
     const shortURLLength = 6;
     const alphaNumeric = generateRandomString(shortURLLength);
-    urlDatabase[alphaNumeric] = request.body.longURL;
+    urlDatabase[alphaNumeric] = {
+      longURL: request.body.longURL,
+      userID: request.cookies.user_id };
     return response.redirect("/urls");
   }
   response.send('Error, not logged in');
@@ -176,7 +189,7 @@ app.post("/urls/:shortURL/delete", (request, response) => {
 
 //POST /URLS/:SHORTURL (edit and update existing shortURL)
 app.post("/urls/:shortURL", (request, response) => {
-  urlDatabase[request.params.shortURL] = request.body.longURL
+  urlDatabase[request.params.shortURL].longURL = request.body.longURL
   response.redirect("/urls");
   // response.redirect("/urls/"+request.params.shortURL);
 });
