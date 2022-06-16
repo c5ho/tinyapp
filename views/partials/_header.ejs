@@ -19,7 +19,7 @@
     <% } else { %>
       <div>
         <form class="form-inline" action="/logout" method="POST">
-          <label for="user_id">Logged in as: <%= user_id %></label>
+          <label for="email">Logged in as: <%= user_id.email %></label>
             <button type="submit" class="btn btn-outline-dark" style="margin: 1em">Logout</button>
         </form>
       </div>

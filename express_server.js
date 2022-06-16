@@ -29,38 +29,40 @@ function checkForEmail(email) {
   }
   return false;
 }
-    
-// "b2xVn2": "http://www.lighthouselabs.ca",
-// "9sm5xK": "http://www.google.com"
 
 //URL DATABASE
 const urlDatabase = {
   b6UTxQ: 
   {
       longURL: "https://www.tsn.ca",
-      userID: "aJ48lW"
+      userID: "u1RdmID1"
   },
   i3BoGr: 
   {
       longURL: "https://www.google.ca",
-      userID: "aJ48lW"
+      userID: "u2RdmID1"
+  },
+  i8Bf45: 
+  {
+      longURL: "http://www.lighthouselabs.ca",
+      userID: "u1RdmID1"
   }
 };
 
 //USER DATABASE
 const users = { 
-  "userRandomID": 
+  "u1RdmID1": 
   {
-    id: "userRandomID", 
-    email: "user@example.com", 
-    password: "asd098"
+    id: "u1RdmID1", 
+    email: "user1@example.com", 
+    password: "asd123"
   },
   
- "user2RandomID": 
+ "u2RdmID2": 
  {
-    id: "user2RandomID", 
+    id: "u2RdmID1", 
     email: "user2@example.com", 
-    password: "dishwasher-funk"
+    password: "asd098"
   }
 }
 
@@ -70,14 +72,20 @@ app.get("/", (request, response) => {
   response.redirect("/urls");
 });
 
-//GET LOGIN (get user ID and password form login form)
+//GET LOGIN (get email and password from login form)
 app.get("/login", (request, response) => {
-  const templateVars = { user_id: request.cookies.user_id };
+  console.log(request.cookies);
+
+  const templateVars = {
+    user_id: request.cookies.user_id
+  };
   response.render("login_form", templateVars);
 });
 
-//POST LOGIN (log the user in with user ID and password)
+//POST LOGIN (log the email with user ID and password)
 app.post("/login", (request, response) => {
+  
+  console.log(request.body);
   console.log('Logging in:', request.body.user_id);
   
   //If the email entered is not existing in database
@@ -92,6 +100,7 @@ app.post("/login", (request, response) => {
   console.log('password should be:', users[user_idFound].password);
   console.log('password entered', request.body.password);
 
+  //If the password matches what's on record
   if (users[user_idFound].password !== request.body.password) {
     return response.status(403).send('Invalid password entered.')
   }
@@ -100,33 +109,42 @@ app.post("/login", (request, response) => {
   response.redirect("/urls")
 });
 
-//GET REGISTER (get user ID and password form reg form)
+//GET REGISTER (get email and password form reg form)
 app.get("/register", (request, response) => {
-  const templateVars = { user_id: request.cookies.user_id };
+  console.log(request.cookies);
+  const templateVars = {
+    user_id: request.cookies.user_id
+  };
   response.render("reg_form", templateVars);
 });
 
-//POST REGISTER (register the user with user ID and password)
+//POST REGISTER (register the user with email and password)
 app.post("/register", (request, response) => {
   console.log("Registering:", request.body);
-  if (request.body.user_id === '' || request.body.password === '') {
+  
+  //If blank email or password is entered
+  if (request.body.email === '' || request.body.password === '') {
       return response.status(400).send('Invalid email or password.')
   };
- 
-  if (checkForEmail(request.body.user_id)) {
+  
+  //If email entered is of an existing user
+  if (checkForEmail(request.body.email)) {
     return response.status(400).send('Email already exists.')
   };
  
-  const userRandomIDLength = 8;
-  const userRandomIDGen = generateRandomString(userRandomIDLength);
-  users[userRandomIDGen] = { 
-    id: userRandomIDGen, 
+  const rdmUserIDLength = 7;
+  const rdmUserID = 'u' + generateRandomString(rdmUserIDLength);
+  users[rdmUserID] = { 
+    id: rdmUserID, 
     email: request.body.email, 
     pasword: request.body.password 
   };
-  
-  // console.log(users);
-  response.cookie("user_id", request.body.user_id);
+
+    
+  console.log(users);
+  console.log(request.body);
+
+  response.cookie("user_id", users[rdmUserID]);
   response.redirect("/urls");
 });
 
@@ -136,8 +154,16 @@ app.get("/urls", (request, response) => {
   const templateVars = { 
     urls: urlDatabase,
     user_id: request.cookies.user_id
-  }; 
-  response.render("urls_index", templateVars);
+  };
+  
+  if (Object.keys(request.cookies).length !== 0) {
+    return response.render("urls_index", templateVars);
+  }
+
+  response.send('Please login or register to create or view your short URLs.');
+  //response.redirect('login');
+
+
 });
 
 //GET /URLS/NEW (request for new shortURL)
