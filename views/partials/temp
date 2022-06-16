@@ -14,3 +14,11 @@
         </form>
       </div>
     <% } %>
+
+
+    // usersArray = Object.values(users)
+    // for (let user of usersArray) {
+    //   if (Object.values(user).includes(request.body.user_id)) {
+    //     return response.status(400).send('Email already exists.')
+    //   }
+    // }
