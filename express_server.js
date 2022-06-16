@@ -86,26 +86,26 @@ app.get("/login", (request, response) => {
 app.post("/login", (request, response) => {
   
   console.log(request.body);
-  console.log('Logging in:', request.body.user_id);
+  console.log('Logging in:', request.body.email);
   
   //If the email entered is not existing in database
-  if (!checkForEmail(request.body.user_id)) {
-    console.log('password entered', request.body.password);
+  if (!checkForEmail(request.body.email)) {
+    console.log('password entered:', request.body.password);
     console.log('email not in database')
     return response.status(403).send('Email cannot be found.')
   };
 
-  const user_idFound = checkForEmail(request.body.user_id);
+  const user_idFound = checkForEmail(request.body.email);
   console.log('email in database', users[user_idFound].email);
   console.log('password should be:', users[user_idFound].password);
-  console.log('password entered', request.body.password);
+  console.log('password entered:', request.body.password);
 
   //If the password matches what's on record
   if (users[user_idFound].password !== request.body.password) {
     return response.status(403).send('Invalid password entered.')
   }
-
-  response.cookie("user_id", request.body.user_id);
+  
+  response.cookie("user_id", users[user_idFound]);
   response.redirect("/urls")
 });
 
@@ -131,7 +131,8 @@ app.post("/register", (request, response) => {
   if (checkForEmail(request.body.email)) {
     return response.status(400).send('Email already exists.')
   };
- 
+  
+  //Set user IDs to be a random generated string of 8 characters with prefix 'u'
   const rdmUserIDLength = 7;
   const rdmUserID = 'u' + generateRandomString(rdmUserIDLength);
   users[rdmUserID] = { 
@@ -139,11 +140,9 @@ app.post("/register", (request, response) => {
     email: request.body.email, 
     pasword: request.body.password 
   };
-
-    
-  console.log(users);
-  console.log(request.body);
-
+ 
+  // console.log(users);
+  // console.log(request.body);
   response.cookie("user_id", users[rdmUserID]);
   response.redirect("/urls");
 });
@@ -162,13 +161,13 @@ app.get("/urls", (request, response) => {
 
   response.send('Please login or register to create or view your short URLs.');
   //response.redirect('login');
-
-
 });
 
 //GET /URLS/NEW (request for new shortURL)
 app.get("/urls/new", (request, response) => {
-  const templateVars = { user_id: request.cookies.user_id };
+  const templateVars = {
+    user_id: request.cookies.user_id
+  };
 
   if (Object.keys(request.cookies).length !== 0) {
     return response.render("urls_new", templateVars);
