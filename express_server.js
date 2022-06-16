@@ -162,8 +162,11 @@ app.get("/urls/:shortURL", (request, response) => {
 
 //GET /U/SHORTURL (redirect to the long URL page)
 app.get("/u/:shortURL", (request, response) => {
-  const longURL = urlDatabase[request.params.shortURL].longURL;
-  response.redirect(longURL);
+  if (Object.keys(urlDatabase).includes(request.params.shortURL)) {
+    const longURL = urlDatabase[request.params.shortURL].longURL;
+    return response.redirect(longURL);
+  }
+  response.status(403).send('Invalid short URL specified.')
 });
 
 //POST /URLS (add new shortURL to the list)
