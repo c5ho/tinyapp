@@ -1,14 +1,18 @@
 const getUserByEmail = require("./helpers")
 const express = require("express");
 const app = express();
-const PORT = 8080; //default port 8080
 const bodyParser = require("body-parser");
 const bcrypt = require('bcryptjs');
-const cookieParser = require('cookie-parser');
+const cookieSession = require('cookie-session')
 app.use(bodyParser.urlencoded({extended: true}));
-app.use(cookieParser());
 app.set("view engine", "ejs");
-
+app.use(cookieSession({
+name: 'session',
+keys: ["To act is to be committed, and to be committed is to be in danger."],
+// Cookie Options
+maxAge: 24 * 60 * 60 * 1000 // 24 hours
+}))
+const PORT = 8080; //default port 8080
 
 //RANDOM ALPHANUMERIC GENERATOR
 function generateRandomString(n) {
@@ -20,8 +24,6 @@ function generateRandomString(n) {
   return randomString;
 }
 
-
-
 //CREATES PERSONAL URL DATABASE BASED ON USER
 function filterUrlsForUser(id){
   let newUrlDatabase = {};
@@ -31,13 +33,6 @@ function filterUrlsForUser(id){
     }
   }
   return newUrlDatabase;
-}
-
-function checkUserLoggedIn(status) {
-  if (Object.keys(status).length !== 0) {
-    return true;
-  }
-  return false
 }
 
 //URL DATABASE
@@ -78,7 +73,7 @@ const users = {
 
 //GET /MAIN
 app.get("/", (request, response) => {
-  if (!checkUserLoggedIn(request.cookies)) {
+  if (!request.session.user_id) {
     return response.redirect('/login');
   }
   response.redirect("/urls");
@@ -87,13 +82,11 @@ app.get("/", (request, response) => {
 //GET LOGIN (get email and password from login form)
 app.get("/login", (request, response) => {
   
-  console.log(request.cookies);
-  
   const templateVars = {
-    user: users[request.cookies.user_id]
+    user: users[request.session.user_id]
   };
 
-  if (!checkUserLoggedIn(request.cookies)) {
+  if (!request.session.user_id) {
     return response.render("login_form", templateVars);
   }
   response.redirect("/urls")
@@ -109,34 +102,23 @@ app.post("/login", (request, response) => {
     return response.status(403).send('Email cannot be found.')
   };
 
-<<<<<<< Updated upstream
-  const user_idFound = checkForEmail(request.body.email);
-  // console.log('email in database', users[user_idFound].email);
-  // console.log('password should be:', users[user_idFound].password);
-  // console.log('password entered:', request.body.password);
-
-=======
->>>>>>> Stashed changes
   //If the password matches what's on record
   if (!bcrypt.compareSync(request.body.password, users[user_idFound].password)) {
     return response.status(403).send('Invalid password entered.')
   }
   
-    // if (users[user_idFound].password !== request.body.password) {}
-
-  response.cookie("user_id", user_idFound);
+  request.session.user_id = user_idFound;
   response.redirect("/urls")
 });
 
 //GET REGISTER (get email and password form reg form)
 app.get("/register", (request, response) => {
-  console.log(request.cookies);
   
   const templateVars = {
-    user: users[request.cookies.user_id]
+    user: users[request.session.user_id]
   };
 
-  if (!checkUserLoggedIn(request.cookies)) {
+  if (!request.session.user_id) {
     return response.render("reg_form", templateVars);
   } 
   response.redirect("/urls");
@@ -169,26 +151,19 @@ app.post("/register", (request, response) => {
     email: request.body.email, 
     password: hashedPassword
   };
-  console.log(hashedPassword)
-  
-  response.cookie("user_id", rdmUserID);
+
+  request.session.user_id = rdmUserID;
   response.redirect("/urls");
 });
 
 //GET /URLS (list of all short and long URLS)
 app.get("/urls", (request, response) => {
-  
-  // if (!checkUserLoggedIn(request.cookies)) {
-  //   return response.status(403).send('Please register or login to access Short URLs.')
-  // }
 
-  console.log(request.cookies);
-
-  let userUrlDatabase = filterUrlsForUser(request.cookies.user_id)
+  let userUrlDatabase = filterUrlsForUser(request.session.user_id)
   //variables sent to an EJS template must be inside an object so that data within the template can be accessed by the key
   const templateVars = { 
     urls: userUrlDatabase,
-    user: users[request.cookies.user_id]
+    user: users[request.session.user_id]
   };
 
   response.render("urls_index", templateVars); 
@@ -197,12 +172,12 @@ app.get("/urls", (request, response) => {
 //GET /URLS/NEW (request for new shortURL)
 app.get("/urls/new", (request, response) => {
 
-  if (!checkUserLoggedIn(request.cookies)) {
+  if (!request.session.user_id) {
     return response.redirect('/login');
   }
 
   const templateVars = {
-    user: users[request.cookies.user_id]
+    user: users[request.session.user_id]
   };
   
   response.render("urls_new", templateVars);
@@ -211,7 +186,7 @@ app.get("/urls/new", (request, response) => {
 //GET /URLS/NEW/:SHORTURL (request to see particular shortURL)
 app.get("/urls/:shortURL", (request, response) => {
 
-  if (!checkUserLoggedIn(request.cookies)) {
+  if (!request.session.user_id) {
     return response.status(403).send('Please register or login to access Short URLs.')
   }
   
@@ -219,13 +194,13 @@ app.get("/urls/:shortURL", (request, response) => {
     return response.status(403).send('Invalid short URL.')
   }
   
-  if (!Object.keys(filterUrlsForUser(request.cookies.user_id)).includes(request.params.shortURL)) {
+  if (!Object.keys(filterUrlsForUser(request.session.user_id)).includes(request.params.shortURL)) {
     return response.status(403).send('Invalid short URL for current account.')
   }
   const templateVars = { 
     shortURL: request.params.shortURL, 
     longURL: urlDatabase[request.params.shortURL].longURL,
-    user: users[request.cookies.user_id]
+    user: users[request.session.user_id]
   }; 
   response.render("urls_show", templateVars);
 });
@@ -243,7 +218,7 @@ app.get("/u/:shortURL", (request, response) => {
 //POST /URLS (add new shortURL to the list)
 app.post("/urls", (request, response) => {
 
-  if (!checkUserLoggedIn(request.cookies)) {
+  if (!request.session.user_id) {
     return response.send('Error, not logged in');
   }
   console.log(request.body);  // Log the POST request body to the console
@@ -253,7 +228,7 @@ app.post("/urls", (request, response) => {
   
   urlDatabase[alphaNumeric] = {
     longURL: request.body.longURL,
-    userID: request.cookies.user_id 
+    userID: request.session.user_id 
   };
   
   response.redirect("/urls/"+alphaNumeric);   
@@ -262,7 +237,7 @@ app.post("/urls", (request, response) => {
 //POST /URSL/:SHORTURL/DELETE (delete existing shortURL)
 app.post("/urls/:shortURL/delete", (request, response) => {
 
-  if (!checkUserLoggedIn(request.cookies)) {
+  if (!request.session.user_id) {
     return response.send('Error, not logged in');
   }
   
@@ -273,23 +248,17 @@ app.post("/urls/:shortURL/delete", (request, response) => {
 //POST /URLS/:SHORTURL (edit and update existing shortURL)
 app.post("/urls/:shortURL", (request, response) => {
 
-  if (!checkUserLoggedIn(request.cookies)) {
+  if (!request.session.user_id) {
     return response.send('Error, not logged in');
   }
 
   urlDatabase[request.params.shortURL].longURL = request.body.longURL
-  response.redirect("/urls");
+  response.redirect("/urls/"+request.params.shortURL);
 });
 
 //POST /LOGOUT (log user out and clear cookies)
 app.post("/logout", (request, response) => { 
-<<<<<<< Updated upstream
-  response.clearCookie("user_id");
-  console.log(request.cookies);
-  console.log('Logging out:', request.cookies.user_id);
-=======
   request.session.user_id = null;
->>>>>>> Stashed changes
   response.redirect("/urls");
 });
 
