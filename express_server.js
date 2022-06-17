@@ -1,3 +1,4 @@
+const getUserByEmail = require("./helpers")
 const express = require("express");
 const app = express();
 const PORT = 8080; //default port 8080
@@ -19,15 +20,7 @@ function generateRandomString(n) {
   return randomString;
 }
 
-//CHECK FOR EMAIL (Helper function that checks for email in the user database and returns true if found)
-function checkForEmail(email) {
-  for (let id in users) {
-    if (users[id].email === email) {
-      return id;
-    }
-  }
-  return false;
-}
+
 
 //CREATES PERSONAL URL DATABASE BASED ON USER
 function filterUrlsForUser(id){
@@ -57,7 +50,7 @@ const urlDatabase = {
   i3BoGr: 
   {
       longURL: "https://www.google.ca",
-      userID: "u2RdmID1"
+      userID: "u2RdmID2"
   },
   i8Bf45: 
   {
@@ -109,20 +102,21 @@ app.get("/login", (request, response) => {
 //POST LOGIN (log the email with user ID and password)
 app.post("/login", (request, response) => {
   
-  console.log('Logging in:', request.body.email);
-  
+  const user_idFound = getUserByEmail(request.body.email, users);
+
   //If the email entered is not existing in database
-  if (!checkForEmail(request.body.email)) {
-    console.log('password entered:', request.body.password);
-    console.log('email not in database')
+  if (!user_idFound) {
     return response.status(403).send('Email cannot be found.')
   };
 
+<<<<<<< Updated upstream
   const user_idFound = checkForEmail(request.body.email);
   // console.log('email in database', users[user_idFound].email);
   // console.log('password should be:', users[user_idFound].password);
   // console.log('password entered:', request.body.password);
 
+=======
+>>>>>>> Stashed changes
   //If the password matches what's on record
   if (!bcrypt.compareSync(request.body.password, users[user_idFound].password)) {
     return response.status(403).send('Invalid password entered.')
@@ -159,7 +153,7 @@ app.post("/register", (request, response) => {
   };
   
   //If email entered is of an existing user
-  if (checkForEmail(request.body.email)) {
+  if (getUserByEmail(request.body.email, users)) {
     return response.status(400).send('Email already exists.')
   };
   
@@ -289,9 +283,13 @@ app.post("/urls/:shortURL", (request, response) => {
 
 //POST /LOGOUT (log user out and clear cookies)
 app.post("/logout", (request, response) => { 
+<<<<<<< Updated upstream
   response.clearCookie("user_id");
   console.log(request.cookies);
   console.log('Logging out:', request.cookies.user_id);
+=======
+  request.session.user_id = null;
+>>>>>>> Stashed changes
   response.redirect("/urls");
 });
 
