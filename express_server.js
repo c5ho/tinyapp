@@ -1,4 +1,4 @@
-const getUserByEmail = require("./helpers");
+const { getUserByEmail, generateRandomString, filterUrlsForUser, checkShortURLExist } = require("./helpers");
 const express = require("express");
 const app = express();
 const bodyParser = require("body-parser");
@@ -13,27 +13,6 @@ app.use(cookieSession({
   maxAge: 24 * 60 * 60 * 1000 // 24 hours
 }));
 const PORT = 8080; //default port 8080
-
-//RANDOM ALPHANUMERIC GENERATOR
-const generateRandomString = function(n) {
-  let randomString = '';
-  const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  for (let i = 0; i < n; i++) {
-    randomString += characters.charAt(Math.floor(Math.random() * characters.length));
-  }
-  return randomString;
-};
-
-//CREATES PERSONAL URL DATABASE BASED ON USER
-const filterUrlsForUser = function(id) {
-  let newUrlDatabase = {};
-  for (let shortURL in urlDatabase) {
-    if (urlDatabase[shortURL].userID === id) {
-      newUrlDatabase[shortURL] = urlDatabase[shortURL].longURL;
-    }
-  }
-  return newUrlDatabase;
-};
 
 //URL DATABASE
 const urlDatabase = {
@@ -99,12 +78,12 @@ app.post("/login", (request, response) => {
 
   //If the email entered is not existing in database
   if (!user_idFound) {
-    return response.status(403).send('Email cannot be found.');
+    return response.status(403).send('Email cannot be found. Please try again.');
   }
 
-  //If the password matches what's on record
+  //If the password does not match what is on record
   if (!bcrypt.compareSync(request.body.password, users[user_idFound].password)) {
-    return response.status(403).send('Invalid password entered.');
+    return response.status(403).send('Invalid password entered. Please try again.');
   }
   
   request.session.user_id = user_idFound;
@@ -130,13 +109,13 @@ app.post("/register", (request, response) => {
   console.log("Registering:", request.body);
   
   //If blank email or password is entered
-  if (request.body.email === '' || request.body.password === '') {
-    return response.status(400).send('Email or password cannot be blank.');
+  if (!request.body.email || !request.body.password) {
+    return response.status(400).send('Email or password cannot be blank. Please try again.');
   }
   
   //If email entered is of an existing user
   if (getUserByEmail(request.body.email, users)) {
-    return response.status(400).send('Email already exists.');
+    return response.status(400).send('Email already exists.  Please register with a new email or log in with your existing email.');
   }
   
   //Set user IDs to be a random generated string of 8 characters with prefix 'u'
@@ -146,6 +125,7 @@ app.post("/register", (request, response) => {
   //Hash incoming password with bcrypt
   const hashedPassword = bcrypt.hashSync(request.body.password, 10);
   
+  //Create a new user object
   users[rdmUserID] = {
     id: rdmUserID,
     email: request.body.email,
@@ -159,7 +139,12 @@ app.post("/register", (request, response) => {
 //GET /URLS (list of all short and long URLS)
 app.get("/urls", (request, response) => {
 
-  let userUrlDatabase = filterUrlsForUser(request.session.user_id);
+  if (!request.session.user_id) {
+    return response.status(403).send('Please register or login to create and edit short URLs.');
+  }
+
+  let userUrlDatabase = filterUrlsForUser(request.session.user_id, urlDatabase);
+  
   //variables sent to an EJS template must be inside an object so that data within the template can be accessed by the key
   const templateVars = {
     urls: userUrlDatabase,
@@ -169,7 +154,7 @@ app.get("/urls", (request, response) => {
   response.render("urls_index", templateVars);
 });
 
-//GET /URLS/NEW (request for new shortURL)
+//GET /URLS/NEW (request for new short URL)
 app.get("/urls/new", (request, response) => {
 
   if (!request.session.user_id) {
@@ -183,19 +168,23 @@ app.get("/urls/new", (request, response) => {
   response.render("urls_new", templateVars);
 });
 
-//GET /URLS/NEW/:SHORTURL (request to see particular shortURL)
+//GET /URLS/NEW/:SHORTURL (request to see particular short URL)
 app.get("/urls/:shortURL", (request, response) => {
 
   if (!request.session.user_id) {
-    return response.status(403).send('Please register or login to access Short URLs.');
+    return response.status(403).send('Please register or login to access short URLs.');
+  }
+    
+  //If an invalid short URL is entered into browser for edit
+  if (!checkShortURLExist(request.params.shortURL, urlDatabase)) {
+    return response.status(403).send('Invalid short URL. Please create another short URL.');
   }
   
-  if (!Object.keys(urlDatabase).includes(request.params.shortURL)) {
-    return response.status(403).send('Invalid short URL.');
-  }
+  const shortURLByUser = Object.keys(filterUrlsForUser(request.session.user_id, urlDatabase));
   
-  if (!Object.keys(filterUrlsForUser(request.session.user_id)).includes(request.params.shortURL)) {
-    return response.status(403).send('Invalid short URL for current account.');
+  //If a valid short URL is entered, but belonging to a different user
+  if (!shortURLByUser.includes(request.params.shortURL)) {
+    return response.status(403).send('Invalid short URL for current account.  Please login with the associated account to edit this short URL.');
   }
   const templateVars = {
     shortURL: request.params.shortURL,
@@ -208,48 +197,48 @@ app.get("/urls/:shortURL", (request, response) => {
 //GET /U/SHORTURL (redirect to the long URL page)
 app.get("/u/:shortURL", (request, response) => {
   
-  if (Object.keys(urlDatabase).includes(request.params.shortURL)) {
-    const longURL = urlDatabase[request.params.shortURL].longURL;
-    return response.redirect(longURL);
+  //If an invalid short URL is used to access a long URL
+  if (!checkShortURLExist(request.params.shortURL, urlDatabase)) {
+    return response.status(403).send('Invalid short URL specified. Please check the URL or create a new short URL');
   }
-  response.status(403).send('Invalid short URL specified.');
+  const longURL = urlDatabase[request.params.shortURL].longURL;
+  response.redirect(longURL);
 });
 
 //POST /URLS (add new shortURL to the list)
 app.post("/urls", (request, response) => {
 
   if (!request.session.user_id) {
-    return response.send('Error, not logged in');
+    return response.send('Error, not logged in.  Please login and try again.');
   }
-  console.log(request.body);  // Log the POST request body to the console
   
+  //Generate a random 6 digit short URL and add it to the URL database with associated long URL and creator userID
   const shortURLLength = 6;
-  const alphaNumeric = generateRandomString(shortURLLength);
-  
-  urlDatabase[alphaNumeric] = {
+  const shortURLName = generateRandomString(shortURLLength);
+  urlDatabase[shortURLName] = {
     longURL: request.body.longURL,
     userID: request.session.user_id
   };
   
-  response.redirect("/urls/" + alphaNumeric);
+  response.redirect("/urls/" + shortURLName);
 });
 
-//POST /URSL/:SHORTURL/DELETE (delete existing shortURL)
+//POST /URSL/:SHORTURL/DELETE (delete existing short URL)
 app.post("/urls/:shortURL/delete", (request, response) => {
 
   if (!request.session.user_id) {
-    return response.send('Error, not logged in');
+    return response.send('Error, not logged in.  Please login and try again.');
   }
   
   delete urlDatabase[request.params.shortURL];
   response.redirect("/urls");
 });
 
-//POST /URLS/:SHORTURL (edit and update existing shortURL)
+//POST /URLS/:SHORTURL (edit and update existing short URL)
 app.post("/urls/:shortURL", (request, response) => {
 
   if (!request.session.user_id) {
-    return response.send('Error, not logged in');
+    return response.send('Error, not logged in.  Please login and try again.');
   }
 
   urlDatabase[request.params.shortURL].longURL = request.body.longURL;
