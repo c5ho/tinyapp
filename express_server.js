@@ -30,9 +30,27 @@ function checkForEmail(email) {
   return false;
 }
 
+//CREATES PERSONAL URL DATABASE BASED ON USER
+function filterUrlsForUser(id){
+  let newUrlDatabase = {};
+  for (let shortURL in urlDatabase) {
+    if (urlDatabase[shortURL].userID === id) {
+      newUrlDatabase[shortURL] = urlDatabase[shortURL].longURL;
+    }
+  }
+  return newUrlDatabase;
+}
+
+function checkUserLoggedIn(status) {
+  if (Object.keys(status).length !== 0) {
+    return true;
+  }
+  return false
+}
+
 //URL DATABASE
 const urlDatabase = {
-  b6UTxQ: 
+  b2xVn2: 
   {
       longURL: "https://www.tsn.ca",
       userID: "u1RdmID1"
@@ -54,8 +72,8 @@ const users = {
   "u1RdmID1": 
   {
     id: "u1RdmID1", 
-    email: "user1@example.com", 
-    password: "asd123"
+    email: "user@example.com", 
+    password: "asd"
   },
   
  "u2RdmID2": 
@@ -68,24 +86,29 @@ const users = {
 
 //GET /MAIN
 app.get("/", (request, response) => {
-//  const templateVars = { greeting: 'Hello World!' };
+  if (!checkUserLoggedIn(request.cookies)) {
+    return response.redirect('/login');
+  }
   response.redirect("/urls");
 });
 
 //GET LOGIN (get email and password from login form)
 app.get("/login", (request, response) => {
   console.log(request.cookies);
-
+  
   const templateVars = {
-    user_id: request.cookies.user_id
+    user: users[request.cookies.user_id]
   };
-  response.render("login_form", templateVars);
+
+  if (!checkUserLoggedIn(request.cookies)) {
+    return response.render("login_form", templateVars);
+  }
+  response.redirect("/urls")
 });
 
 //POST LOGIN (log the email with user ID and password)
 app.post("/login", (request, response) => {
   
-  console.log(request.body);
   console.log('Logging in:', request.body.email);
   
   //If the email entered is not existing in database
@@ -102,20 +125,24 @@ app.post("/login", (request, response) => {
 
   //If the password matches what's on record
   if (users[user_idFound].password !== request.body.password) {
-    return response.status(403).send('Invalid password entered.')
+   return response.status(403).send('Invalid password entered.')
   }
-  
-  response.cookie("user_id", users[user_idFound]);
+  response.cookie("user_id", user_idFound);
   response.redirect("/urls")
 });
 
 //GET REGISTER (get email and password form reg form)
 app.get("/register", (request, response) => {
   console.log(request.cookies);
+  
   const templateVars = {
-    user_id: request.cookies.user_id
+    user: users[request.cookies.user_id]
   };
-  response.render("reg_form", templateVars);
+
+  if (!checkUserLoggedIn(request.cookies)) {
+    return response.render("reg_form", templateVars);
+  } 
+  response.redirect("/urls");
 });
 
 //POST REGISTER (register the user with email and password)
@@ -124,7 +151,7 @@ app.post("/register", (request, response) => {
   
   //If blank email or password is entered
   if (request.body.email === '' || request.body.password === '') {
-      return response.status(400).send('Invalid email or password.')
+      return response.status(400).send('Email or password cannot be blank.')
   };
   
   //If email entered is of an existing user
@@ -143,50 +170,68 @@ app.post("/register", (request, response) => {
  
   // console.log(users);
   // console.log(request.body);
-  response.cookie("user_id", users[rdmUserID]);
+  response.cookie("user_id", rdmUserID);
   response.redirect("/urls");
 });
 
 //GET /URLS (list of all short and long URLS)
 app.get("/urls", (request, response) => {
-  //variables sent to an EJS template must be inside an object so that data within the template can be accessed by the key
-  const templateVars = { 
-    urls: urlDatabase,
-    user_id: request.cookies.user_id
-  };
   
-  if (Object.keys(request.cookies).length !== 0) {
-    return response.render("urls_index", templateVars);
+  if (!checkUserLoggedIn(request.cookies)) {
+    return response.status(403).send('Please register or login to access Short URLs.')
   }
 
-  response.send('Please login or register to create or view your short URLs.');
-  //response.redirect('login');
+  console.log(request.cookies);
+
+  let userUrlDatabase = filterUrlsForUser(request.cookies.user_id)
+  //variables sent to an EJS template must be inside an object so that data within the template can be accessed by the key
+  const templateVars = { 
+    urls: userUrlDatabase,
+    user: users[request.cookies.user_id]
+  };
+
+  response.render("urls_index", templateVars); 
 });
 
 //GET /URLS/NEW (request for new shortURL)
 app.get("/urls/new", (request, response) => {
-  const templateVars = {
-    user_id: request.cookies.user_id
-  };
 
-  if (Object.keys(request.cookies).length !== 0) {
-    return response.render("urls_new", templateVars);
+  if (!checkUserLoggedIn(request.cookies)) {
+    return response.redirect('/login');
   }
-  response.redirect('/login');
+
+  const templateVars = {
+    user: users[request.cookies.user_id]
+  };
+  
+  response.render("urls_new", templateVars);
 });
 
 //GET /URLS/NEW/:SHORTURL (request to see particular shortURL)
 app.get("/urls/:shortURL", (request, response) => {
+
+  if (!checkUserLoggedIn(request.cookies)) {
+    return response.status(403).send('Please register or login to access Short URLs.')
+  }
+  
+  if (!Object.keys(urlDatabase).includes(request.params.shortURL)) {
+    return response.status(403).send('Invalid short URL.')
+  }
+  
+  if (!Object.keys(filterUrlsForUser(request.cookies.user_id)).includes(request.params.shortURL)) {
+    return response.status(403).send('Invalid short URL for current account.')
+  }
   const templateVars = { 
     shortURL: request.params.shortURL, 
     longURL: urlDatabase[request.params.shortURL].longURL,
-    user_id: request.cookies.user_id
+    user: users[request.cookies.user_id]
   }; 
   response.render("urls_show", templateVars);
 });
 
 //GET /U/SHORTURL (redirect to the long URL page)
 app.get("/u/:shortURL", (request, response) => {
+  
   if (Object.keys(urlDatabase).includes(request.params.shortURL)) {
     const longURL = urlDatabase[request.params.shortURL].longURL;
     return response.redirect(longURL);
@@ -196,30 +241,43 @@ app.get("/u/:shortURL", (request, response) => {
 
 //POST /URLS (add new shortURL to the list)
 app.post("/urls", (request, response) => {
+
+  if (!checkUserLoggedIn(request.cookies)) {
+    return response.send('Error, not logged in');
+  }
   console.log(request.body);  // Log the POST request body to the console
   
-  if (Object.keys(request.cookies).length !== 0) {
-    const shortURLLength = 6;
-    const alphaNumeric = generateRandomString(shortURLLength);
-    urlDatabase[alphaNumeric] = {
-      longURL: request.body.longURL,
-      userID: request.cookies.user_id };
-    return response.redirect("/urls");
-  }
-  response.send('Error, not logged in');
+  const shortURLLength = 6;
+  const alphaNumeric = generateRandomString(shortURLLength);
+  
+  urlDatabase[alphaNumeric] = {
+    longURL: request.body.longURL,
+    userID: request.cookies.user_id 
+  };
+  
+  response.redirect("/urls/"+alphaNumeric);   
 });
 
 //POST /URSL/:SHORTURL/DELETE (delete existing shortURL)
 app.post("/urls/:shortURL/delete", (request, response) => {
+
+  if (!checkUserLoggedIn(request.cookies)) {
+    return response.send('Error, not logged in');
+  }
+  
   delete urlDatabase[request.params.shortURL];
   response.redirect("/urls");
 });
 
 //POST /URLS/:SHORTURL (edit and update existing shortURL)
 app.post("/urls/:shortURL", (request, response) => {
+
+  if (!checkUserLoggedIn(request.cookies)) {
+    return response.send('Error, not logged in');
+  }
+
   urlDatabase[request.params.shortURL].longURL = request.body.longURL
   response.redirect("/urls");
-  // response.redirect("/urls/"+request.params.shortURL);
 });
 
 //POST /LOGOUT (log user out and clear cookies)
