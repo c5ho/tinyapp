@@ -1,14 +1,13 @@
 const express = require("express");
 const app = express();
 const PORT = 8080; //default port 8080
-
 const bodyParser = require("body-parser");
-app.use(bodyParser.urlencoded({extended: true}));
-
+const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
+app.use(bodyParser.urlencoded({extended: true}));
 app.use(cookieParser());
-
 app.set("view engine", "ejs");
+
 
 //RANDOM ALPHANUMERIC GENERATOR
 function generateRandomString(n) {
@@ -73,14 +72,14 @@ const users = {
   {
     id: "u1RdmID1", 
     email: "user@example.com", 
-    password: "asd"
+    password: "$2a$10$4w5VgV0mTR0/mO5vujFMGuUrGMErEdrz4.OS2LZ7sHOzegfZ99bzi"
   },
   
  "u2RdmID2": 
  {
-    id: "u2RdmID1", 
-    email: "user2@example.com", 
-    password: "asd098"
+    id: "u2RdmID1",
+    email: "user2@example.com",  
+    password: "$2a$10$HYnQDWO8BqYMoJBGOZoEIuADcM5fmKVwktF7c4aSusfi96qW/ho9u"
   }
 }
 
@@ -94,6 +93,7 @@ app.get("/", (request, response) => {
 
 //GET LOGIN (get email and password from login form)
 app.get("/login", (request, response) => {
+  
   console.log(request.cookies);
   
   const templateVars = {
@@ -119,14 +119,17 @@ app.post("/login", (request, response) => {
   };
 
   const user_idFound = checkForEmail(request.body.email);
-  console.log('email in database', users[user_idFound].email);
-  console.log('password should be:', users[user_idFound].password);
-  console.log('password entered:', request.body.password);
+  // console.log('email in database', users[user_idFound].email);
+  // console.log('password should be:', users[user_idFound].password);
+  // console.log('password entered:', request.body.password);
 
   //If the password matches what's on record
-  if (users[user_idFound].password !== request.body.password) {
-   return response.status(403).send('Invalid password entered.')
+  if (!bcrypt.compareSync(request.body.password, users[user_idFound].password)) {
+    return response.status(403).send('Invalid password entered.')
   }
+  
+    // if (users[user_idFound].password !== request.body.password) {}
+
   response.cookie("user_id", user_idFound);
   response.redirect("/urls")
 });
@@ -147,6 +150,7 @@ app.get("/register", (request, response) => {
 
 //POST REGISTER (register the user with email and password)
 app.post("/register", (request, response) => {
+  
   console.log("Registering:", request.body);
   
   //If blank email or password is entered
@@ -162,14 +166,17 @@ app.post("/register", (request, response) => {
   //Set user IDs to be a random generated string of 8 characters with prefix 'u'
   const rdmUserIDLength = 7;
   const rdmUserID = 'u' + generateRandomString(rdmUserIDLength);
+  
+  //Hash incoming password with bcrypt
+  hashedPassword = bcrypt.hashSync(request.body.password, 10);
+  
   users[rdmUserID] = { 
     id: rdmUserID, 
     email: request.body.email, 
-    pasword: request.body.password 
+    password: hashedPassword
   };
- 
-  // console.log(users);
-  // console.log(request.body);
+  console.log(hashedPassword)
+  
   response.cookie("user_id", rdmUserID);
   response.redirect("/urls");
 });
@@ -177,9 +184,9 @@ app.post("/register", (request, response) => {
 //GET /URLS (list of all short and long URLS)
 app.get("/urls", (request, response) => {
   
-  if (!checkUserLoggedIn(request.cookies)) {
-    return response.status(403).send('Please register or login to access Short URLs.')
-  }
+  // if (!checkUserLoggedIn(request.cookies)) {
+  //   return response.status(403).send('Please register or login to access Short URLs.')
+  // }
 
   console.log(request.cookies);
 
